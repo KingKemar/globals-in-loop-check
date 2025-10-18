@@ -37,7 +37,7 @@ Add the hook definition to your repository:
 
 ```yaml
 repos:
-  - repo: https://github.com/<org>/<repo>.git
+  - repo: https://github.com/KingKemar/globals-in-loop-check.git
     rev: <tag-or-commit>
     hooks:
       - id: globals-in-loop-check
