@@ -14,7 +14,7 @@ pip install -e .
 Or install directly from GitHub:
 
 ```
-pip install git+https://github.com/<org>/<repo>.git
+pip install git+https://github.com/KingKemar/globals-in-loop-check
 ```
 
 ## Usage
