@@ -1,5 +1,6 @@
 import ast
-from detect_global_in_loops import GlobalUsageChecker, find_globals, analyze_file
+
+from globals_in_loop_check import GlobalUsageChecker, analyze_file, find_globals, scan_paths
 
 
 def run_checker_on_code(code, globals_defined):
@@ -100,6 +101,47 @@ def func():
 """
     f = tmp_path / "sample.py"
     f.write_text(code)
-    violations = analyze_file(str(f))
+    violations = analyze_file(f)
     assert len(violations) == 1
-    assert violations[0][0] == "GLOBAL"
+    assert violations[0].variable == "GLOBAL"
+
+
+def test_scan_paths_handles_directories(tmp_path):
+    code = """
+GLOBAL = 10
+def func():
+    for i in range(2):
+        print(GLOBAL)
+"""
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    target = pkg / "sample.py"
+    target.write_text(code)
+
+    violations = scan_paths([pkg])
+    assert len(violations) == 1
+    assert violations[0].path == target
+
+
+def test_scan_paths_ignores_non_python_files(tmp_path):
+    folder = tmp_path / "pkg"
+    folder.mkdir()
+    (folder / "readme.txt").write_text("GLOBAL = 1\n")
+
+    violations = scan_paths([folder])
+    assert violations == []
+
+
+def test_scan_paths_accepts_files(tmp_path):
+    code = """
+GLOBAL = 10
+def func():
+    for i in range(2):
+        print(GLOBAL)
+"""
+    file_path = tmp_path / "file.py"
+    file_path.write_text(code)
+
+    violations = scan_paths([file_path])
+    assert len(violations) == 1
+    assert violations[0].path == file_path

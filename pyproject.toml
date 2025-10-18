@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project]
+name = "globals-in-loop-check"
+version = "0.1.0"
+description = "Detect global variable usage inside loops and comprehensions"
+readme = "README.md"
+authors = [{ name = "Unknown" }]
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "build",
+]
+
+[project.scripts]
+globals-in-loop-check = "globals_in_loop_check.cli:main"
