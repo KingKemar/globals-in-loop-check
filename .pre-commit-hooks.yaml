@@ -1,0 +1,5 @@
+- id: globals-in-loop-check
+  name: globals-in-loop-check
+  entry: globals-in-loop-check
+  language: python
+  types: [python]
