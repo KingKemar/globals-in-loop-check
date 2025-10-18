@@ -1,0 +1,1 @@
+# globals-in-loop-check
