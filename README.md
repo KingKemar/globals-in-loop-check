@@ -1,44 +1,49 @@
 # globals-in-loop-check
 
-`globals-in-loop-check` détecte l'utilisation de variables globales à l'intérieur de boucles ou de compréhensions. Le projet est maintenant empaqueté en tant que bibliothèque Python avec une CLI, ce qui permet son intégration dans des hooks `pre-commit` ou des pipelines CI.
+`globals-in-loop-check` detects usage of global variables inside loops or comprehensions.
+Accessing globals within hot loops slows execution because each iteration performs a global lookup.
 
 ## Installation
 
-```bash
-pip install globals-in-loop-check
+Install locally in editable mode:
+
+```
+pip install -e .
 ```
 
-Pour un développement local :
+Or install directly from GitHub:
 
-```bash
-pip install -e .[dev]
+```
+pip install git+https://github.com/<org>/<repo>.git
 ```
 
-## Utilisation
+## Usage
 
-Analysez un dossier ou une liste de fichiers :
+Run the checker on one or more files or directories:
 
-```bash
-globals-in-loop-check src/ package/module.py
+```
+globals-in-loop-check src/ my_module.py
 ```
 
-Options utiles :
+Key options:
 
-- `--short` : supprime le message d'aide.
-- `--no-gitignore` : ignore les fichiers listés dans `.gitignore`.
+- `--short` – emit a compact report, useful for CI environments.
+- `--no-gitignore` – analyze files even if they are listed in `.gitignore`.
+- `--help` – show the full command-line reference.
 
-### Intégration avec pre-commit
+## Integration with pre-commit
+
+Add the hook definition to your repository:
 
 ```yaml
 repos:
-  - repo: https://github.com/<votre_organisation>/<votre_projet>.git
-    rev: v0.1.0
+  - repo: https://github.com/<org>/<repo>.git
+    rev: <tag-or-commit>
     hooks:
       - id: globals-in-loop-check
 ```
 
-Ajoutez le fichier `.pre-commit-hooks.yaml` suivant à la racine du dépôt de votre
-librairie (remplacez le dépôt ci-dessus par celui où sera publiée la release) :
+If publishing your own mirror of the hook, include a `.pre-commit-hooks.yaml` file containing:
 
 ```yaml
 - id: globals-in-loop-check
@@ -48,17 +53,10 @@ librairie (remplacez le dépôt ci-dessus par celui où sera publiée la release
   types: [python]
 ```
 
-## Développement
+## Running tests
 
-Les tests sont basés sur `pytest` :
+Tests use `pytest`:
 
-```bash
+```
 pytest
 ```
-
-Une GitHub Action (`.github/workflows/release.yml`) exécute automatiquement les
-tests et la construction du paquet lors de la publication d'une release.
-
-## Licence
-
-MIT
