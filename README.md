@@ -1,7 +1,7 @@
 # globals-in-loop-check
 
-`globals-in-loop-check` detects usage of global variables inside loops or comprehensions.
-Accessing globals within hot loops slows execution because each iteration performs a global lookup.
+`globals-in-loop-check` detects problematic/global usage patterns in Python code.
+It focuses on performance and encapsulation best‑practices around module‑level variables.
 
 ## Installation
 
@@ -28,8 +28,20 @@ globals-in-loop-check src/ my_module.py
 Key options:
 
 - `--short` – emit a compact report, useful for CI environments.
-- `--no-gitignore` – analyze files even if they are listed in `.gitignore`.
-- `--help` – show the full command-line reference.
+- `--no-gitignore` - analyze files even if they are listed in `.gitignore`.
+- `--help` - show the full command-line reference.
+
+## Rules
+
+The tool currently reports these checks as flake8‑style messages:
+
+- G001 — Global used inside a loop/comprehension
+  - Example: `path/to/file.py:10:1: G001 global variable 'X' used inside a loop`
+  - Rationale: each iteration performs a global lookup; cache into a local before the loop.
+- G002 — Global should be encapsulated in a class
+  - Trigger: a module‑level variable is only ever referenced inside methods of a single class.
+  - Example: `path/to/file.py:3:1: G002 module-level variable 'CFG' is only used inside class 'Service'; consider encapsulating it as a class/instance attribute`
+  - Rationale: improves modularity and control over access/modification.
 
 ## Integration with pre-commit
 
@@ -60,3 +72,8 @@ Tests use `pytest`:
 ```
 pytest
 ```
+
+## Notes
+
+- The CLI prints a short remediation hint for G001 by default (omit with `--short`).
+- Directories like `.venv/` and third‑party trees `site-packages/` or `dist-packages/` are skipped.
