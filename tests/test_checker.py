@@ -196,3 +196,69 @@ def test_scan_paths_skips_site_packages_folder(tmp_path, monkeypatch):
     violations = scan_paths([project])
     assert len(violations) == 1
     assert violations[0].path == app
+
+
+def test_encapsulation_warns_when_global_used_only_in_single_class(tmp_path):
+    code = (
+        "X = 1\n"
+        "class A:\n"
+        "    def m(self):\n"
+        "        return X\n"
+        "    def n(self):\n"
+        "        return X + 1\n"
+    )
+    f = tmp_path / "mod.py"
+    f.write_text(code)
+    violations = analyze_file(f)
+    # exactly one warning, G002
+    assert len(violations) == 1
+    v = violations[0]
+    assert v.variable == "X"
+    assert v.code == "G002"
+    # ensure it points to the global definition line
+    assert v.line == 1
+
+
+def test_encapsulation_no_warn_when_used_in_multiple_classes(tmp_path):
+    code = (
+        "X = 1\n"
+        "class A:\n"
+        "    def m(self):\n"
+        "        return X\n"
+        "class B:\n"
+        "    def n(self):\n"
+        "        return X + 1\n"
+    )
+    f = tmp_path / "mod2.py"
+    f.write_text(code)
+    violations = analyze_file(f)
+    assert all(v.code != "G002" for v in violations)
+
+
+def test_encapsulation_no_warn_when_used_in_module_function(tmp_path):
+    code = (
+        "X = 1\n"
+        "class A:\n"
+        "    def m(self):\n"
+        "        return X\n"
+        "def util():\n"
+        "    return X\n"
+    )
+    f = tmp_path / "mod3.py"
+    f.write_text(code)
+    violations = analyze_file(f)
+    assert all(v.code != "G002" for v in violations)
+
+
+def test_g002_format_includes_class_name(tmp_path):
+    code = (
+        "X = 1\n"
+        "class A:\n"
+        "    def m(self):\n"
+        "        return X\n"
+    )
+    f = tmp_path / "fmt.py"
+    f.write_text(code)
+    [v] = analyze_file(f)
+    out = v.format()
+    assert "G002" in out and "class 'A'" in out and "X" in out

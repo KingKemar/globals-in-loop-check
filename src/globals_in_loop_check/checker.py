@@ -22,19 +22,37 @@ THIRD_PARTY_MARKERS: Set[str] = {"site-packages", "dist-packages"}
 
 @dataclass(frozen=True)
 class Violation:
-    """Representation of a global usage violation."""
+    """Representation of a best-practice violation/warning."""
 
     path: Path
     line: int
     variable: str
+    code: str = "G001"
+    detail: str | None = None
 
     def format(self) -> str:
         """Return the violation as a flake8-style message."""
         path = self.path.as_posix()
-        return (
-            f"{path}:{self.line}:1: G001 "
-            f"global variable '{self.variable}' used inside a loop"
-        )
+        if self.code == "G001":
+            message = (
+                f"global variable '{self.variable}' used inside a loop"
+            )
+        elif self.code == "G002":
+            # detail expected to be class name when available
+            if self.detail:
+                message = (
+                    f"module-level variable '{self.variable}' is only used "
+                    f"inside class '{self.detail}'; consider encapsulating it "
+                    f"as a class/instance attribute"
+                )
+            else:
+                message = (
+                    f"module-level variable '{self.variable}' is only used "
+                    f"inside a single class; consider encapsulating it"
+                )
+        else:
+            message = f"issue with global variable '{self.variable}'"
+        return f"{path}:{self.line}:1: {self.code} {message}"
 
 
 def load_gitignore(root_dir: Path) -> Set[str]:
@@ -97,6 +115,38 @@ class GlobalUsageChecker(ast.NodeVisitor):
                     self.violations.append((child.id, child.lineno))
 
 
+class EncapsulationChecker(ast.NodeVisitor):
+    """Collect usage locations of module-level globals within classes.
+
+    Determines whether a given global is referenced exclusively in methods of a
+    single class within the module.
+    """
+
+    def __init__(self, globals_defined: Iterable[str]):
+        self.globals_defined: Set[str] = set(globals_defined)
+        # map var -> set of class names where it is used
+        self.var_classes: Dict[str, Set[str]] = {name: set() for name in self.globals_defined}
+        # set of var names used outside any class (module-level or module functions)
+        self.var_used_outside_class: Set[str] = set()
+        self._class_stack: List[str] = []
+
+    # Track class scope
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
+        self._class_stack.append(node.name)
+        self.generic_visit(node)
+        self._class_stack.pop()
+
+    # Record Name usages
+    def visit_Name(self, node: ast.Name) -> None:  # noqa: N802
+        if isinstance(node.ctx, ast.Load) and node.id in self.globals_defined:
+            if self._class_stack:
+                self.var_classes[node.id].add(self._class_stack[-1])
+            else:
+                self.var_used_outside_class.add(node.id)
+        # continue traversal
+        self.generic_visit(node)
+
+
 def find_globals(tree: ast.AST) -> List[str]:
     """Return a list of module-level variable names assigned in *tree*."""
 
@@ -106,7 +156,25 @@ def find_globals(tree: ast.AST) -> List[str]:
             for target in node.targets:
                 if isinstance(target, ast.Name):
                     globals_.append(target.id)
+        elif isinstance(node, ast.AnnAssign):
+            target = node.target
+            if isinstance(target, ast.Name):
+                globals_.append(target.id)
     return globals_
+
+
+def _find_global_lines(tree: ast.AST) -> Dict[str, int]:
+    lines: Dict[str, int] = {}
+    for node in getattr(tree, "body", []):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    lines.setdefault(target.id, node.lineno)
+        elif isinstance(node, ast.AnnAssign):
+            target = node.target
+            if isinstance(target, ast.Name):
+                lines.setdefault(target.id, node.lineno)
+    return lines
 
 
 def analyze_file(file_path: Path | str) -> List[Violation]:
@@ -124,9 +192,39 @@ def analyze_file(file_path: Path | str) -> List[Violation]:
         return []
 
     globals_ = find_globals(tree)
-    checker = GlobalUsageChecker(globals_)
-    checker.visit(tree)
-    return [Violation(path=path, line=line, variable=var) for var, line in checker.violations]
+
+    # G001: global usage inside loops/comprehensions
+    loop_checker = GlobalUsageChecker(globals_)
+    loop_checker.visit(tree)
+
+    violations: List[Violation] = [
+        Violation(path=path, line=line, variable=var, code="G001")
+        for var, line in loop_checker.violations
+    ]
+
+    # G002: global used only within a single class -> suggest encapsulation
+    if globals_:
+        enc_checker = EncapsulationChecker(globals_)
+        enc_checker.visit(tree)
+        global_lines = _find_global_lines(tree)
+
+        for var in globals_:
+            classes = enc_checker.var_classes.get(var, set())
+            used_outside = var in enc_checker.var_used_outside_class
+            if classes and not used_outside and len(classes) == 1:
+                class_name = next(iter(classes))
+                line_no = global_lines.get(var, 1)
+                violations.append(
+                    Violation(
+                        path=path,
+                        line=line_no,
+                        variable=var,
+                        code="G002",
+                        detail=class_name,
+                    )
+                )
+
+    return violations
 
 
 def scan_paths(
