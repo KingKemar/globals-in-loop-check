@@ -3,6 +3,34 @@
 `globals-in-loop-check` detects problematic/global usage patterns in Python code.
 It focuses on performance and encapsulation best‑practices around module‑level variables.
 
+## Why this library exists
+
+Accessing **global variables** inside loops or functions is **slower** than accessing locals.  
+This is a well-documented behavior in Python’s design and can cause measurable slowdowns in tight loops or performance-critical code.
+
+here are two instances where this behaviour is illustrated
+
+### 🔹 [Optimize Python Code: Local vs Global Variables (CyCoderX, 2024)](https://python.plainenglish.io/optimize-python-code-local-vs-global-variables-5ec0722d7d4d)
+
+Shows that copying a global variable into a local before entering a loop can improve performance by **~12%** for just 1,000 iterations.
+
+```python
+global_var = 10
+
+def func():
+    ans = 0
+    local_var = global_var  # copy to local scope
+    for i in range(1000):
+        ans += local_var * i
+    return ans
+```
+### 🔹 [Python Patterns – An Optimization Anecdote (python.org, Guido van Rossum)](https://www.python.org/doc/essays/list2str/#:~:text=,an%20explicit%20for%20loop%2C%20but)
+
+An early essay demonstrating why local lookups are much faster than global or built-in ones:
+
+“Local variable lookups are much faster than global or built-in variable lookups:
+the compiler optimizes function bodies so that local variables use simple array indexing instead of dictionary lookups.”
+
 ## Installation
 
 Install locally in editable mode:
